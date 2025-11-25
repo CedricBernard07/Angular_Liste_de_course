@@ -9,6 +9,6 @@ import { Articles } from './articles/articles';
   styleUrl: './app.css'
 })
 export class App {
-  title = 'mini-app';
+  title = 'Liste-de-course';
 }
 

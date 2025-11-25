@@ -2,6 +2,15 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+type Categorie = 'alimentaire' | 'nonAlimentaire';
+
+interface ArchiveEntry {
+  id: number;                      // identifiant unique (timestamp)
+  createdAt: string;               // date ISO
+  articlesAlimentaires: string[];
+  articlesNonAlimentaires: string[];
+}
+
 @Component({
   selector: 'app-articles',
   standalone: true,
@@ -10,18 +19,27 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './articles.css' 
 })
 export class Articles {
-  private readonly STORAGE_KEY = 'articles-list';
+  private readonly STORAGE_KEY_CURRENT = 'articles-list';
+  private readonly STORAGE_KEY_ARCHIVES = 'articles-archives';
 
   newArticle = '';
-  category: 'alimentaire' | 'nonAlimentaire' = 'alimentaire';
+  category: Categorie = 'alimentaire';
 
+  // liste actuelle
   articlesAlimentaires: string[] = [];
   articlesNonAlimentaires: string[] = [];
+
+  // historique de listes archivées
+  archives: ArchiveEntry[] = [];
+
+  // false = page principale, true = historique
+  showHistory = false;
 
   errorMessage = '';
 
   constructor() {
-    this.loadFromStorage();
+    this.loadCurrentFromStorage();
+    this.loadArchivesFromStorage();
   }
 
   // --- méthode utilitaire : vérifier qu'on est bien dans un navigateur ---
@@ -29,6 +47,10 @@ export class Articles {
     // typeof est sûr même si window / localStorage n'existent pas
     return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
   }
+
+  // =======================
+  //   PAGE PRINCIPALE
+  // =======================
 
   // méthode pour ajouter un article
   addArticle() {
@@ -63,17 +85,17 @@ export class Articles {
 
     this.newArticle = '';
     this.errorMessage = '';
-    this.saveToStorage();
+    this.saveCurrentToStorage();
   }
 
   // méthode pour supprimer un article
-  removeArticle(category: 'alimentaire' | 'nonAlimentaire', index: number) {
+  removeArticle(category: Categorie, index: number) {
     if (category === 'alimentaire') {
       this.articlesAlimentaires.splice(index, 1);
     } else {
       this.articlesNonAlimentaires.splice(index, 1);
     }
-    this.saveToStorage();
+    this.saveCurrentToStorage();
   }
 
   // méthode pour tout effacer, vider
@@ -81,12 +103,62 @@ export class Articles {
     this.articlesAlimentaires = [];
     this.articlesNonAlimentaires = [];
     this.errorMessage = '';
-    this.saveToStorage();
+    this.saveCurrentToStorage();
   }
 
-  // --- persistance dans localStorage ---
 
-  private saveToStorage() {
+  // archiver la liste actuelle dans l'historique et vider la liste
+  archiveCurrentList() {
+    const isEmpty =
+      this.articlesAlimentaires.length === 0 &&
+      this.articlesNonAlimentaires.length === 0;
+
+    if (isEmpty) {
+      this.errorMessage = 'La liste est vide, rien à archiver.';
+      return;
+    }
+
+    const now = new Date();
+    const snapshot: ArchiveEntry = {
+      id: now.getTime(),
+      createdAt: now.toISOString(),
+      articlesAlimentaires: [...this.articlesAlimentaires],
+      articlesNonAlimentaires: [...this.articlesNonAlimentaires],
+    };
+
+    // on ajoute en tête (les plus récents d'abord)
+    this.archives.unshift(snapshot);
+    this.saveArchivesToStorage();
+
+    // puis on vide la liste actuelle
+    this.clearAll(); // vide + sauvegarde la liste courante
+  }
+
+  // vider complètement l'historique des listes archivées
+  clearArchives() {
+    this.archives = [];
+    this.saveArchivesToStorage();
+  }
+
+
+
+  // =======================
+  //   NAVIGATION SIMPLE
+  // =======================
+
+  goToHistory() {
+    this.showHistory = true;
+  }
+
+  goToCurrent() {
+    this.showHistory = false;
+  }
+
+  // =======================
+  //   PERSISTANCE
+  // =======================
+
+  private saveCurrentToStorage() {
     if (!this.canUseStorage()) return;
 
     const data = {
@@ -94,16 +166,16 @@ export class Articles {
       articlesNonAlimentaires: this.articlesNonAlimentaires,
     };
     try {
-      window.localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+      window.localStorage.setItem(this.STORAGE_KEY_CURRENT, JSON.stringify(data));
     } catch {
       // on ignore si le stockage échoue (mode privé, quota, etc.)
     }
   }
 
-  private loadFromStorage() {
+  private loadCurrentFromStorage() {
     if (!this.canUseStorage()) return;
 
-    const raw = window.localStorage.getItem(this.STORAGE_KEY);
+    const raw = window.localStorage.getItem(this.STORAGE_KEY_CURRENT);
     if (!raw) return;
 
     try {
@@ -117,6 +189,33 @@ export class Articles {
     } catch {
       this.articlesAlimentaires = [];
       this.articlesNonAlimentaires = [];
+    }
+  }
+
+  private saveArchivesToStorage() {
+    if (!this.canUseStorage()) return;
+
+    try {
+      window.localStorage.setItem(this.STORAGE_KEY_ARCHIVES, JSON.stringify(this.archives));
+    } catch {
+      // ignore erreur
+    }
+  }
+
+  private loadArchivesFromStorage() {
+    if (!this.canUseStorage()) return;
+
+    const raw = window.localStorage.getItem(this.STORAGE_KEY_ARCHIVES);
+    if (!raw) {
+      this.archives = [];
+      return;
+    }
+
+    try {
+      const data = JSON.parse(raw);
+      this.archives = Array.isArray(data) ? data : [];
+    } catch {
+      this.archives = [];
     }
   }
 }
