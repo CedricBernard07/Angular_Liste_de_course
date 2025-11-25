@@ -1,0 +1,149 @@
+/* Carte globale */
+.articles-card {
+  width: 100%;        /* largeur relative à la page */
+  max-width: 1500px;  /* largeur max pour éviter que ça soit trop grand sur grand écran */
+  margin: 24px auto; /* auto = centré horizontalement */
+  padding: 20px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+
+/* Ligne input + radios + bouton */
+.articles-input-row {
+  display: flex;
+  flex-wrap: nowrap;          /* on évite le retour à la ligne */
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.articles-input-row input[type="text"] {
+  flex: 1 1 auto;             /* prend toute la largeur dispo */
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+}
+
+/* Bouton ajouter */
+.articles-input-row button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;        /* le texte ne se coupe pas, reste sur une ligne */
+  background: #2563eb;
+  color: white;
+}
+
+.articles-input-row button:hover {
+  background: #1d4ed8;
+}
+
+/* Radios catégorie */
+.articles-category {
+  display: flex;
+  flex-shrink: 0;             /* évite que ça écrase trop l'input */
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.articles-category label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+
+
+/* Message d'erreur */
+.error-message {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #ef4444;
+}
+
+/* Colonnes des listes */
+.articles-columns {
+  display: flex;
+  gap: 24px;                  /* plus d'espace entre les 2 colonnes */
+  margin-top: 16px;
+}
+
+.articles-column {
+  flex: 1;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Séparateur visuel entre les deux colonnes */
+.articles-column + .articles-column {
+  border-left: 2px solid #e5e7eb;
+}
+
+/* Titres de colonnes */
+.articles-column h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+/* Liste */
+.articles-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.articles-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.articles-list li:last-child {
+  border-bottom: none;
+}
+
+.articles-list button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  background: #ef4444;
+  color: white;
+}
+
+.articles-list button:hover {
+  background: #b91c1c;
+}
+
+/* Bouton tout vider */
+.articles-actions {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.articles-actions button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  background: #6b7280;
+  color: white;
+}
+
+.articles-actions button:hover {
+  background: #4b5563;
+}

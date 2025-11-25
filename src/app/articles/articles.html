@@ -1,0 +1,75 @@
+<div class="articles-card">
+  <h2>Mes articles</h2>
+
+  <div class="articles-input-row">
+    <input
+      type="text"
+      [(ngModel)]="newArticle"
+      placeholder="Nouvel article"
+      (keyup.enter)="addArticle()" 
+      (input)="errorMessage = ''"
+    />
+
+    <!-- Choix de catégorie -->
+    <div class="articles-category">
+      <label>
+        <input
+          type="radio"
+          name="category"
+          value="alimentaire"
+          [(ngModel)]="category"
+        />
+        Alimentaire
+      </label>
+
+      <label>
+        <input
+          type="radio"
+          name="category"
+          value="nonAlimentaire"
+          [(ngModel)]="category"
+        />
+        Non alimentaire
+      </label>
+    </div>
+
+    <!-- Si on appuie sur la touche "entrée", cela fait aussi l'ajout -->
+    <button (click)="addArticle()">Ajouter</button>
+  </div>
+
+  <!-- Message d'erreur en rouge si doublon -->
+  <p class="error-message" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </p>
+
+  <!-- Deux sous-listes côte à côte -->
+  <div class="articles-columns">
+    <div class="articles-column">
+      <h3>Alimentaire</h3>
+      <ul class="articles-list">
+        <li *ngFor="let article of articlesAlimentaires; let i = index">
+          <span>{{ article }}</span>
+          <button (click)="removeArticle('alimentaire', i)">X</button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="articles-column">
+      <h3>Non alimentaire</h3>
+      <ul class="articles-list">
+        <li *ngFor="let article of articlesNonAlimentaires; let i = index">
+          <span>{{ article }}</span>
+          <button (click)="removeArticle('nonAlimentaire', i)">X</button>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Bouton pour tout vider, affiché seulement s'il y a au moins un article -->
+  <div
+    class="articles-actions"
+    *ngIf="articlesAlimentaires.length > 0 || articlesNonAlimentaires.length > 0"
+  >
+    <button (click)="clearAll()">Tout vider</button>
+  </div>
+</div>
