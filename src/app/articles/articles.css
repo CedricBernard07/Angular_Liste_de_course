@@ -210,4 +210,74 @@
   border: 1px solid #e5e7eb;
 }
 
+/* --- Layout mobile / petits écrans --- */
+@media (max-width: 640px) {
+  /* La "card" prend toute la largeur, marges réduites */
+  .articles-card {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    padding: 12px;
+  }
+
+  /* Les onglets centrés */
+  .articles-nav {
+    margin: 0 0 8px;
+    justify-content: center;
+  }
+
+  /* Ligne de saisie : tout en colonne */
+  .articles-input-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .articles-input-row input[type="text"] {
+    width: 100%;
+  }
+
+  .articles-category {
+    justify-content: center;
+  }
+
+  .articles-input-row button {
+    width: 100%;
+  }
+
+  /* Les 2 colonnes de listes passent l'une sous l'autre */
+  .articles-columns {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .articles-column {
+    padding: 8px 10px;
+  }
+
+  /* Boutons d'actions centrés et larges */
+  .articles-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .articles-actions button {
+    width: 100%;
+  }
+
+  /* Vue historique : un peu plus compacte */
+  .history-view {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .archive-entry {
+    padding: 10px;
+  }
+}
+
+
 
