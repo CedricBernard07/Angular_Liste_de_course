@@ -1,58 +1,65 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
+import { AfterViewInit, ChangeDetectorRef, Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-
-type Categorie = 'alimentaire' | 'nonAlimentaire';
-
-interface ArchiveEntry {
-  id: number;                      // identifiant unique (timestamp)
-  createdAt: string;               // date ISO
-  articlesAlimentaires: string[];
-  articlesNonAlimentaires: string[];
-}
+import { Observable } from 'rxjs';
+import {
+  ArchiveEntry,
+  ArticleItem,
+  ArticleState,
+  ArticlesService,
+  Categorie,
+} from './articles.service';
 
 @Component({
   selector: 'app-articles',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './articles.html',
-  styleUrl: './articles.css' 
+  styleUrl: './articles.css',
 })
-export class Articles {
-  private readonly STORAGE_KEY_CURRENT = 'articles-list';
-  private readonly STORAGE_KEY_ARCHIVES = 'articles-archives';
-
+export class Articles implements OnInit, AfterViewInit {
   newArticle = '';
   category: Categorie = 'alimentaire';
+  private hasLoaded = false;
 
   // liste actuelle
-  articlesAlimentaires: string[] = [];
-  articlesNonAlimentaires: string[] = [];
+  articlesAlimentaires: ArticleItem[] = [];
+  articlesNonAlimentaires: ArticleItem[] = [];
 
-  // historique de listes archivées
+  // historique de listes archivees
   archives: ArchiveEntry[] = [];
 
   // false = page principale, true = historique
   showHistory = false;
 
   errorMessage = '';
+  loading = false;
 
-  constructor() {
-    this.loadCurrentFromStorage();
-    this.loadArchivesFromStorage();
+  private readonly platformId = inject(PLATFORM_ID);
+
+  constructor(
+    private readonly articlesService: ArticlesService,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
+
+  ngOnInit(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.refreshFromServer();
+    }
   }
 
-  // --- méthode utilitaire : vérifier qu'on est bien dans un navigateur ---
-  private canUseStorage(): boolean {
-    // typeof est sûr même si window / localStorage n'existent pas
-    return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  ngAfterViewInit(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      // planifie un chargement apres hydratation pour s'assurer que la liste arrive sans interaction
+      setTimeout(() => this.refreshFromServer(), 0);
+    }
   }
 
   // =======================
   //   PAGE PRINCIPALE
   // =======================
 
-  // méthode pour ajouter un article
   addArticle() {
     const article = this.newArticle.trim();
 
@@ -61,86 +68,41 @@ export class Articles {
       return;
     }
 
-    const articleLower = article.toLowerCase();
-
-    // On vérifie dans les deux listes (doublon global)
-    const allArticles = [
-      ...this.articlesAlimentaires,
-      ...this.articlesNonAlimentaires,
-    ];
-    const alreadyExists = allArticles.some(
-      (a) => a.toLowerCase() === articleLower
-    );
-
-    if (alreadyExists) {
-      this.errorMessage = 'Cet article est déjà dans la liste.';
+    if (!this.hasLoaded) {
+      this.refreshFromServer(() => this.addArticle());
       return;
     }
 
-    if (this.category === 'alimentaire') {
-      this.articlesAlimentaires.push(article);
-    } else {
-      this.articlesNonAlimentaires.push(article);
-    }
-
-    this.newArticle = '';
-    this.errorMessage = '';
-    this.saveCurrentToStorage();
+    this.perform(this.articlesService.addArticle(article, this.category), { resetInput: true });
   }
 
-  // méthode pour supprimer un article
-  removeArticle(category: Categorie, index: number) {
-    if (category === 'alimentaire') {
-      this.articlesAlimentaires.splice(index, 1);
-    } else {
-      this.articlesNonAlimentaires.splice(index, 1);
-    }
-    this.saveCurrentToStorage();
+  removeArticle(category: Categorie, item: ArticleItem) {
+    this.perform(this.articlesService.removeArticle(item.name, category));
   }
 
-  // méthode pour tout effacer, vider
+  toggleDone(category: Categorie, item: ArticleItem) {
+    this.perform(this.articlesService.toggleDone(item.name, category));
+  }
+
   clearAll() {
-    this.articlesAlimentaires = [];
-    this.articlesNonAlimentaires = [];
-    this.errorMessage = '';
-    this.saveCurrentToStorage();
+    this.perform(this.articlesService.clearCurrent());
   }
 
-
-  // archiver la liste actuelle dans l'historique et vider la liste
   archiveCurrentList() {
     const isEmpty =
-      this.articlesAlimentaires.length === 0 &&
-      this.articlesNonAlimentaires.length === 0;
+      this.articlesAlimentaires.length === 0 && this.articlesNonAlimentaires.length === 0;
 
     if (isEmpty) {
-      this.errorMessage = 'La liste est vide, rien à archiver.';
+      this.errorMessage = 'La liste est vide, rien a archiver.';
       return;
     }
 
-    const now = new Date();
-    const snapshot: ArchiveEntry = {
-      id: now.getTime(),
-      createdAt: now.toISOString(),
-      articlesAlimentaires: [...this.articlesAlimentaires],
-      articlesNonAlimentaires: [...this.articlesNonAlimentaires],
-    };
-
-    // on ajoute en tête (les plus récents d'abord)
-    this.archives.unshift(snapshot);
-    this.saveArchivesToStorage();
-
-    // puis on vide la liste actuelle
-    this.clearAll(); // vide + sauvegarde la liste courante
+    this.perform(this.articlesService.archiveCurrent());
   }
 
-  // vider complètement l'historique des listes archivées
   clearArchives() {
-    this.archives = [];
-    this.saveArchivesToStorage();
+    this.perform(this.articlesService.clearArchives());
   }
-
-
 
   // =======================
   //   NAVIGATION SIMPLE
@@ -155,67 +117,49 @@ export class Articles {
   }
 
   // =======================
-  //   PERSISTANCE
+  //   UTILITAIRES
   // =======================
 
-  private saveCurrentToStorage() {
-    if (!this.canUseStorage()) return;
-
-    const data = {
-      articlesAlimentaires: this.articlesAlimentaires,
-      articlesNonAlimentaires: this.articlesNonAlimentaires,
-    };
-    try {
-      window.localStorage.setItem(this.STORAGE_KEY_CURRENT, JSON.stringify(data));
-    } catch {
-      // on ignore si le stockage échoue (mode privé, quota, etc.)
-    }
+  private refreshFromServer(onSuccess?: () => void) {
+    this.perform(this.articlesService.fetchState(), {
+      onSuccess: () => {
+        this.hasLoaded = true;
+        onSuccess?.();
+      },
+    });
   }
 
-  private loadCurrentFromStorage() {
-    if (!this.canUseStorage()) return;
-
-    const raw = window.localStorage.getItem(this.STORAGE_KEY_CURRENT);
-    if (!raw) return;
-
-    try {
-      const data = JSON.parse(raw);
-      this.articlesAlimentaires = Array.isArray(data.articlesAlimentaires)
-        ? data.articlesAlimentaires
-        : [];
-      this.articlesNonAlimentaires = Array.isArray(data.articlesNonAlimentaires)
-        ? data.articlesNonAlimentaires
-        : [];
-    } catch {
-      this.articlesAlimentaires = [];
-      this.articlesNonAlimentaires = [];
-    }
+  private applyState(state: ArticleState) {
+    this.articlesAlimentaires = state.articlesAlimentaires;
+    this.articlesNonAlimentaires = state.articlesNonAlimentaires;
+    this.archives = state.archives;
+    this.errorMessage = '';
   }
 
-  private saveArchivesToStorage() {
-    if (!this.canUseStorage()) return;
-
-    try {
-      window.localStorage.setItem(this.STORAGE_KEY_ARCHIVES, JSON.stringify(this.archives));
-    } catch {
-      // ignore erreur
-    }
-  }
-
-  private loadArchivesFromStorage() {
-    if (!this.canUseStorage()) return;
-
-    const raw = window.localStorage.getItem(this.STORAGE_KEY_ARCHIVES);
-    if (!raw) {
-      this.archives = [];
-      return;
-    }
-
-    try {
-      const data = JSON.parse(raw);
-      this.archives = Array.isArray(data) ? data : [];
-    } catch {
-      this.archives = [];
-    }
+  private perform(
+    action: Observable<ArticleState>,
+    options: { resetInput?: boolean; onSuccess?: () => void } = {},
+  ) {
+    this.loading = true;
+    action.subscribe({
+      next: (state) => {
+        this.applyState(state as ArticleState);
+        if (options.resetInput) {
+          this.newArticle = '';
+        }
+        options.onSuccess?.();
+        // force la vue a prendre les valeurs appliquees (notamment newArticle vide)
+        this.cdr.detectChanges();
+        this.loading = false;
+      },
+      error: (error) => {
+        const apiMessage = error?.error?.message;
+        this.errorMessage =
+          typeof apiMessage === 'string'
+            ? apiMessage
+            : 'Erreur lors de la communication avec le serveur.';
+        this.loading = false;
+      },
+    });
   }
 }

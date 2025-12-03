@@ -18,11 +18,11 @@
         type="text"
         [(ngModel)]="newArticle"
         placeholder="Nouvel article"
-        (keyup.enter)="addArticle()" 
+        (keyup.enter)="addArticle()"
         (input)="errorMessage = ''"
       />
 
-      <!-- Choix de catégorie -->
+      <!-- Choix de categorie -->
       <div class="articles-category">
         <label>
           <input
@@ -45,7 +45,7 @@
         </label>
       </div>
 
-      <!-- Si on appuie sur la touche "entrée", cela fait aussi l'ajout -->
+      <!-- Si on appuie sur la touche "entree", cela fait aussi l'ajout -->
       <button (click)="addArticle()">Ajouter</button>
     </div>
 
@@ -54,14 +54,15 @@
       {{ errorMessage }}
     </p>
 
-    <!-- Deux sous-listes côte à côte -->
+    <!-- Deux sous-listes cote a cote -->
     <div class="articles-columns">
       <div class="articles-column">
         <h3>Alimentaire</h3>
         <ul class="articles-list">
-          <li *ngFor="let article of articlesAlimentaires; let i = index">
-            <span>{{ article }}</span>
-            <button (click)="removeArticle('alimentaire', i)">X</button>
+          <li *ngFor="let article of articlesAlimentaires">
+            <button class="btn-validate" (click)="toggleDone('alimentaire', article)">V</button>
+            <span [class.article-done]="article.done">{{ article.name }}</span>
+            <button class="btn-delete" (click)="removeArticle('alimentaire', article)">X</button>
           </li>
         </ul>
       </div>
@@ -69,9 +70,10 @@
       <div class="articles-column">
         <h3>Non alimentaire</h3>
         <ul class="articles-list">
-          <li *ngFor="let article of articlesNonAlimentaires; let i = index">
-            <span>{{ article }}</span>
-            <button (click)="removeArticle('nonAlimentaire', i)">X</button>
+          <li *ngFor="let article of articlesNonAlimentaires">
+            <button class="btn-validate" (click)="toggleDone('nonAlimentaire', article)">V</button>
+            <span [class.article-done]="article.done">{{ article.name }}</span>
+            <button class="btn-delete" (click)="removeArticle('nonAlimentaire', article)">X</button>
           </li>
         </ul>
       </div>
@@ -83,7 +85,8 @@
       *ngIf="articlesAlimentaires.length > 0 || articlesNonAlimentaires.length > 0"
     >
       <button (click)="archiveCurrentList()">Archiver et vider</button>
-      <br> <br> <!-- retour a la ligne entre les 2 boutons -->
+      <br /><br />
+      <!-- retour a la ligne entre les 2 boutons -->
       <button (click)="clearAll()">Tout vider (oublier)</button>
     </div>
   </ng-container>
@@ -98,12 +101,12 @@
       </div>
 
       <p *ngIf="archives.length === 0">
-        Aucune liste archivée pour l'instant.
+        Aucune liste archivee pour l'instant.
       </p>
 
       <div *ngFor="let archive of archives" class="archive-entry">
         <h3>
-          Liste du {{ archive.createdAt | date:'short' }}
+          Liste du {{ archive.createdAt | date: 'short' }}
         </h3>
 
         <div class="articles-columns">
@@ -111,7 +114,7 @@
             <h4>Alimentaire</h4>
             <ul class="articles-list">
               <li *ngFor="let a of archive.articlesAlimentaires">
-                {{ a }}
+                <span [class.article-done]="a.done">{{ a.name }}</span>
               </li>
             </ul>
           </div>
@@ -120,7 +123,7 @@
             <h4>Non alimentaire</h4>
             <ul class="articles-list">
               <li *ngFor="let a of archive.articlesNonAlimentaires">
-                {{ a }}
+                <span [class.article-done]="a.done">{{ a.name }}</span>
               </li>
             </ul>
           </div>
