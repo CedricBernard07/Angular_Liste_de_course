@@ -1,134 +1,188 @@
-<div class="articles-card">
-  <!-- Navigation entre les 2 "pages" -->
-  <div class="articles-nav">
-    <button (click)="goToCurrent()" [disabled]="!showHistory">
-      Liste actuelle
-    </button>
-    <button (click)="goToHistory()" [disabled]="showHistory">
-      Historique
-    </button>
-  </div>
+<div class="articles-layout">
+  <aside class="articles-sidebar">
+    <h2>Mes listes</h2>
 
-  <!-- PAGE PRINCIPALE : liste actuelle -->
-  <ng-container *ngIf="!showHistory; else historyView">
-    <h2>Mes articles</h2>
-
-    <div class="articles-input-row">
+    <div class="list-create">
       <input
         type="text"
-        [(ngModel)]="newArticle"
-        placeholder="Nouvel article"
-        (keyup.enter)="addArticle()"
-        (input)="errorMessage = ''"
+        [(ngModel)]="newListName"
+        placeholder="Nom de la liste"
+        (keyup.enter)="createList()"
+        (input)="listErrorMessage = ''"
       />
-
-      <!-- Choix de categorie -->
-      <div class="articles-category">
-        <label>
-          <input
-            type="radio"
-            name="category"
-            value="alimentaire"
-            [(ngModel)]="category"
-          />
-          Alimentaire
-        </label>
-
-        <label>
-          <input
-            type="radio"
-            name="category"
-            value="nonAlimentaire"
-            [(ngModel)]="category"
-          />
-          Non alimentaire
-        </label>
-      </div>
-
-      <!-- Si on appuie sur la touche "entree", cela fait aussi l'ajout -->
-      <button (click)="addArticle()">Ajouter</button>
+      <button (click)="createList()">Creer</button>
     </div>
 
-    <!-- Message d'erreur en rouge si doublon -->
-    <p class="error-message" *ngIf="errorMessage">
-      {{ errorMessage }}
+    <p class="error-message" *ngIf="listErrorMessage">
+      {{ listErrorMessage }}
     </p>
 
-    <!-- Deux sous-listes cote a cote -->
-    <div class="articles-columns">
-      <div class="articles-column">
-        <h3>Alimentaire</h3>
-        <ul class="articles-list">
-          <li *ngFor="let article of articlesAlimentaires">
-            <button class="btn-validate" (click)="toggleDone('alimentaire', article)">V</button>
-            <span [class.article-done]="article.done">{{ article.name }}</span>
-            <button class="btn-delete" (click)="removeArticle('alimentaire', article)">X</button>
-          </li>
-        </ul>
-      </div>
+    <ul class="lists-menu">
+      <li *ngFor="let list of lists">
+        <div
+          class="list-item"
+          (click)="selectList(list.id)"
+          [class.active]="list.id === activeListId"
+        >
+          <span class="list-name">{{ list.name }}</span>
+          <button
+            class="list-delete"
+            type="button"
+            aria-label="Supprimer la liste"
+            (click)="deleteList(list.id, $event)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"
+              />
+            </svg>
+          </button>
+        </div>
+      </li>
+    </ul>
+  </aside>
 
-      <div class="articles-column">
-        <h3>Non alimentaire</h3>
-        <ul class="articles-list">
-          <li *ngFor="let article of articlesNonAlimentaires">
-            <button class="btn-validate" (click)="toggleDone('nonAlimentaire', article)">V</button>
-            <span [class.article-done]="article.done">{{ article.name }}</span>
-            <button class="btn-delete" (click)="removeArticle('nonAlimentaire', article)">X</button>
-          </li>
-        </ul>
-      </div>
+  <div class="articles-card">
+    <!-- Navigation entre les 2 "pages" -->
+    <div class="articles-nav">
+      <button (click)="goToCurrent()" [disabled]="!activeList || !showHistory">
+        Liste actuelle
+      </button>
+      <button (click)="goToHistory()" [disabled]="!activeList || showHistory">
+        Historique
+      </button>
     </div>
 
-    <!-- Actions : archiver + tout vider -->
-    <div
-      class="articles-actions"
-      *ngIf="articlesAlimentaires.length > 0 || articlesNonAlimentaires.length > 0"
-    >
-      <button (click)="archiveCurrentList()">Archiver et vider</button>
-      <br /><br />
-      <!-- retour a la ligne entre les 2 boutons -->
-      <button (click)="clearAll()">Tout vider (oublier)</button>
-    </div>
-  </ng-container>
+    <ng-container *ngIf="activeList; else emptyListView">
+      <!-- PAGE PRINCIPALE : liste actuelle -->
+      <ng-container *ngIf="!showHistory; else historyView">
+        <h2>Mes articles - {{ activeList.name }}</h2>
 
-  <!-- PAGE HISTORIQUE -->
-  <ng-template #historyView>
-    <div class="history-view">
-      <h2>Historique des listes</h2>
+        <div class="articles-input-row">
+          <input
+            type="text"
+            [(ngModel)]="newArticle"
+            placeholder="Nouvel article"
+            (keyup.enter)="addArticle()"
+            (input)="errorMessage = ''"
+          />
 
-      <div class="articles-actions" *ngIf="archives.length > 0">
-        <button (click)="clearArchives()">Vider l'historique</button>
-      </div>
+          <!-- Choix de categorie -->
+          <div class="articles-category">
+            <label>
+              <input
+                type="radio"
+                name="category"
+                value="alimentaire"
+                [(ngModel)]="category"
+              />
+              Alimentaire
+            </label>
 
-      <p *ngIf="archives.length === 0">
-        Aucune liste archivee pour l'instant.
-      </p>
+            <label>
+              <input
+                type="radio"
+                name="category"
+                value="nonAlimentaire"
+                [(ngModel)]="category"
+              />
+              Non alimentaire
+            </label>
+          </div>
 
-      <div *ngFor="let archive of archives" class="archive-entry">
-        <h3>
-          Liste du {{ archive.createdAt | date: 'short' }}
-        </h3>
+          <!-- Si on appuie sur la touche "entree", cela fait aussi l'ajout -->
+          <button (click)="addArticle()">Ajouter</button>
+        </div>
 
+        <!-- Message d'erreur en rouge si doublon -->
+        <p class="error-message" *ngIf="errorMessage">
+          {{ errorMessage }}
+        </p>
+
+        <!-- Deux sous-listes cote a cote -->
         <div class="articles-columns">
           <div class="articles-column">
-            <h4>Alimentaire</h4>
+            <h3>Alimentaire</h3>
             <ul class="articles-list">
-              <li *ngFor="let a of archive.articlesAlimentaires">
-                <span [class.article-done]="a.done">{{ a.name }}</span>
+              <li *ngFor="let article of activeList.articlesAlimentaires">
+                <button class="btn-validate" (click)="toggleDone('alimentaire', article)">V</button>
+                <span [class.article-done]="article.done">{{ article.name }}</span>
+                <button class="btn-delete" (click)="removeArticle('alimentaire', article)">X</button>
               </li>
             </ul>
           </div>
 
           <div class="articles-column">
-            <h4>Non alimentaire</h4>
+            <h3>Non alimentaire</h3>
             <ul class="articles-list">
-              <li *ngFor="let a of archive.articlesNonAlimentaires">
-                <span [class.article-done]="a.done">{{ a.name }}</span>
+              <li *ngFor="let article of activeList.articlesNonAlimentaires">
+                <button class="btn-validate" (click)="toggleDone('nonAlimentaire', article)">V</button>
+                <span [class.article-done]="article.done">{{ article.name }}</span>
+                <button class="btn-delete" (click)="removeArticle('nonAlimentaire', article)">X</button>
               </li>
             </ul>
           </div>
         </div>
+
+        <!-- Actions : archiver + tout vider -->
+        <div
+          class="articles-actions"
+          *ngIf="activeList.articlesAlimentaires.length > 0 || activeList.articlesNonAlimentaires.length > 0"
+        >
+          <button (click)="archiveCurrentList()">Archiver et vider</button>
+          <br /><br />
+          <!-- retour a la ligne entre les 2 boutons -->
+          <button (click)="clearAll()">Tout vider (oublier)</button>
+        </div>
+      </ng-container>
+
+      <!-- PAGE HISTORIQUE -->
+      <ng-template #historyView>
+        <div class="history-view">
+          <h2>Historique de {{ activeList.name }}</h2>
+
+          <div class="articles-actions" *ngIf="archives.length > 0">
+            <button (click)="clearArchives()">Vider l'historique</button>
+          </div>
+
+          <p *ngIf="archives.length === 0">
+            Aucune liste archivee pour l'instant.
+          </p>
+
+          <div *ngFor="let archive of archives" class="archive-entry">
+            <h3>
+              Liste du {{ archive.createdAt | date: 'short' }}
+            </h3>
+
+            <div class="articles-columns">
+              <div class="articles-column">
+                <h4>Alimentaire</h4>
+                <ul class="articles-list">
+                  <li *ngFor="let a of archive.articlesAlimentaires">
+                    <span [class.article-done]="a.done">{{ a.name }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="articles-column">
+                <h4>Non alimentaire</h4>
+                <ul class="articles-list">
+                  <li *ngFor="let a of archive.articlesNonAlimentaires">
+                    <span [class.article-done]="a.done">{{ a.name }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-template>
+    </ng-container>
+
+    <ng-template #emptyListView>
+      <div class="empty-list">
+        <h2>Pas encore de liste</h2>
+        <p>Ajoutez une nouvelle liste dans le bandeau de gauche pour demarrer.</p>
       </div>
-    </div>
-  </ng-template>
+    </ng-template>
+  </div>
 </div>

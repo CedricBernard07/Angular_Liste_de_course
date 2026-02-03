@@ -1,8 +1,132 @@
-/* Carte globale */
-.articles-card {
-  width: 100%;
+/* Layout global */
+.articles-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
   max-width: 1500px;
   margin: 24px auto;
+  padding: 0 12px;
+}
+
+.articles-sidebar {
+  width: 280px;
+  padding: 18px 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #111827 0%, #1f2937 100%);
+  border: 1px solid #0f172a;
+  color: #f9fafb;
+  position: sticky;
+  top: 24px;
+}
+
+.articles-sidebar h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  color: #f9fafb;
+}
+
+.list-create {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.list-create input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  background: #0f172a;
+  color: #f9fafb;
+  font-size: 0.9rem;
+}
+
+.list-create button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #22c55e;
+  color: #0f172a;
+}
+
+.list-create button:hover {
+  background: #16a34a;
+}
+
+.lists-menu {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: rgba(15, 23, 42, 0.65);
+  color: #f9fafb;
+  cursor: pointer;
+  font-weight: 600;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.list-item:hover {
+  border-color: #38bdf8;
+  transform: translateX(2px);
+}
+
+.list-item.active {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.18);
+  color: #ecfccb;
+}
+
+.list-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(248, 113, 113, 0.15);
+  cursor: pointer;
+  color: #fecaca;
+}
+
+.list-delete svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.list-delete:hover {
+  background: rgba(248, 113, 113, 0.35);
+}
+
+/* Carte globale */
+.articles-card {
+  flex: 1;
+  min-width: 0;
   padding: 20px;
   border-radius: 12px;
   background: #f9fafb;
@@ -211,6 +335,14 @@
   padding: 16px;
 }
 
+.empty-list {
+  text-align: center;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px dashed #d1d5db;
+}
+
 /* Titre de l'historique */
 .history-view h2 {
   margin-top: 0;
@@ -227,10 +359,21 @@
 
 /* --- Layout mobile / petits ecrans --- */
 @media (max-width: 640px) {
+  .articles-layout {
+    flex-direction: column;
+    margin: 0;
+    padding: 12px;
+  }
+
+  .articles-sidebar {
+    width: 100%;
+    padding: 12px;
+    position: static;
+  }
+
   .articles-card {
     width: 100%;
-    margin: 0;
-    border-radius: 0;
+    border-radius: 12px;
     padding: 12px;
   }
 

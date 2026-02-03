@@ -6,7 +6,7 @@ import {
   ArticleState,
   ArchiveEntry,
   Categorie,
-  ArticleItem,
+  ShoppingList,
 } from './articles.service';
 
 describe('Articles', () => {
@@ -19,12 +19,23 @@ describe('Articles', () => {
     clearCurrent: jasmine.Spy;
     archiveCurrent: jasmine.Spy;
     clearArchives: jasmine.Spy;
+    createList: jasmine.Spy;
+    deleteList: jasmine.Spy;
+    setActiveList: jasmine.Spy;
+    toggleDone: jasmine.Spy;
+  };
+
+  const emptyList: ShoppingList = {
+    id: 1,
+    name: 'Test',
+    articlesAlimentaires: [],
+    articlesNonAlimentaires: [],
+    archives: [] as ArchiveEntry[],
   };
 
   const emptyState: ArticleState = {
-    articlesAlimentaires: [] as ArticleItem[],
-    articlesNonAlimentaires: [] as ArticleItem[],
-    archives: [] as ArchiveEntry[],
+    lists: [emptyList],
+    activeListId: emptyList.id,
   };
 
   beforeEach(async () => {
@@ -36,13 +47,16 @@ describe('Articles', () => {
       removeArticle: jasmine
         .createSpy('removeArticle')
         .and.callFake((name: string, category: Categorie) => of(emptyState)),
-    clearCurrent: jasmine.createSpy('clearCurrent').and.returnValue(of(emptyState)),
-    archiveCurrent: jasmine.createSpy('archiveCurrent').and.returnValue(of(emptyState)),
-    clearArchives: jasmine.createSpy('clearArchives').and.returnValue(of(emptyState)),
-    toggleDone: jasmine
-      .createSpy('toggleDone')
-      .and.callFake((name: string, category: Categorie) => of(emptyState)),
-  };
+      clearCurrent: jasmine.createSpy('clearCurrent').and.returnValue(of(emptyState)),
+      archiveCurrent: jasmine.createSpy('archiveCurrent').and.returnValue(of(emptyState)),
+      clearArchives: jasmine.createSpy('clearArchives').and.returnValue(of(emptyState)),
+      createList: jasmine.createSpy('createList').and.returnValue(of(emptyState)),
+      deleteList: jasmine.createSpy('deleteList').and.returnValue(of(emptyState)),
+      setActiveList: jasmine.createSpy('setActiveList').and.returnValue(of(emptyState)),
+      toggleDone: jasmine
+        .createSpy('toggleDone')
+        .and.callFake((name: string, category: Categorie) => of(emptyState)),
+    };
 
     await TestBed.configureTestingModule({
       imports: [Articles],

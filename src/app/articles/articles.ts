@@ -9,6 +9,7 @@ import {
   ArticleState,
   ArticlesService,
   Categorie,
+  ShoppingList,
 } from './articles.service';
 
 @Component({
@@ -20,12 +21,14 @@ import {
 })
 export class Articles implements OnInit, AfterViewInit {
   newArticle = '';
+  newListName = '';
   category: Categorie = 'alimentaire';
   private hasLoaded = false;
 
-  // liste actuelle
-  articlesAlimentaires: ArticleItem[] = [];
-  articlesNonAlimentaires: ArticleItem[] = [];
+  // listes disponibles
+  lists: ShoppingList[] = [];
+  activeListId: number | null = null;
+  activeList: ShoppingList | null = null;
 
   // historique de listes archivees
   archives: ArchiveEntry[] = [];
@@ -34,6 +37,7 @@ export class Articles implements OnInit, AfterViewInit {
   showHistory = false;
 
   errorMessage = '';
+  listErrorMessage = '';
   loading = false;
 
   private readonly platformId = inject(PLATFORM_ID);
@@ -62,9 +66,15 @@ export class Articles implements OnInit, AfterViewInit {
 
   addArticle() {
     const article = this.newArticle.trim();
+    const activeList = this.getActiveList();
 
     if (!article) {
       this.errorMessage = '';
+      return;
+    }
+
+    if (!activeList) {
+      this.errorMessage = 'Creez ou selectionnez une liste avant d\'ajouter un article.';
       return;
     }
 
@@ -89,8 +99,15 @@ export class Articles implements OnInit, AfterViewInit {
   }
 
   archiveCurrentList() {
+    const activeList = this.getActiveList();
+
+    if (!activeList) {
+      this.errorMessage = 'Creez ou selectionnez une liste avant d\'archiver.';
+      return;
+    }
+
     const isEmpty =
-      this.articlesAlimentaires.length === 0 && this.articlesNonAlimentaires.length === 0;
+      activeList.articlesAlimentaires.length === 0 && activeList.articlesNonAlimentaires.length === 0;
 
     if (isEmpty) {
       this.errorMessage = 'La liste est vide, rien a archiver.';
@@ -102,6 +119,46 @@ export class Articles implements OnInit, AfterViewInit {
 
   clearArchives() {
     this.perform(this.articlesService.clearArchives());
+  }
+
+  createList() {
+    const name = this.newListName.trim();
+
+    if (!name) {
+      this.listErrorMessage = 'Veuillez entrer un nom de liste.';
+      return;
+    }
+
+    this.perform(this.articlesService.createList(name), {
+      resetListInput: true,
+      errorTarget: 'list',
+    });
+  }
+
+  selectList(listId: number) {
+    if (!this.hasLoaded) {
+      this.refreshFromServer(() => this.selectList(listId));
+      return;
+    }
+
+    if (this.activeListId === listId) {
+      return;
+    }
+
+    this.perform(this.articlesService.setActiveList(listId));
+  }
+
+  deleteList(listId: number, event?: MouseEvent) {
+    event?.stopPropagation();
+
+    if (!this.hasLoaded) {
+      this.refreshFromServer(() => this.deleteList(listId));
+      return;
+    }
+
+    this.perform(this.articlesService.deleteList(listId), {
+      errorTarget: 'list',
+    });
   }
 
   // =======================
@@ -130,15 +187,27 @@ export class Articles implements OnInit, AfterViewInit {
   }
 
   private applyState(state: ArticleState) {
-    this.articlesAlimentaires = state.articlesAlimentaires;
-    this.articlesNonAlimentaires = state.articlesNonAlimentaires;
-    this.archives = state.archives;
+    this.lists = state.lists ?? [];
+    this.activeListId =
+      typeof state.activeListId === 'number'
+        ? state.activeListId
+        : this.lists.length > 0
+          ? this.lists[0].id
+          : null;
+    this.activeList = this.getActiveList();
+    this.archives = this.activeList?.archives ?? [];
     this.errorMessage = '';
+    this.listErrorMessage = '';
   }
 
   private perform(
     action: Observable<ArticleState>,
-    options: { resetInput?: boolean; onSuccess?: () => void } = {},
+    options: {
+      resetInput?: boolean;
+      resetListInput?: boolean;
+      onSuccess?: () => void;
+      errorTarget?: 'main' | 'list';
+    } = {},
   ) {
     this.loading = true;
     action.subscribe({
@@ -147,6 +216,9 @@ export class Articles implements OnInit, AfterViewInit {
         if (options.resetInput) {
           this.newArticle = '';
         }
+        if (options.resetListInput) {
+          this.newListName = '';
+        }
         options.onSuccess?.();
         // force la vue a prendre les valeurs appliquees (notamment newArticle vide)
         this.cdr.detectChanges();
@@ -154,12 +226,23 @@ export class Articles implements OnInit, AfterViewInit {
       },
       error: (error) => {
         const apiMessage = error?.error?.message;
-        this.errorMessage =
+        const message =
           typeof apiMessage === 'string'
             ? apiMessage
             : 'Erreur lors de la communication avec le serveur.';
+        if (options.errorTarget === 'list') {
+          this.listErrorMessage = message;
+          this.errorMessage = '';
+        } else {
+          this.errorMessage = message;
+          this.listErrorMessage = '';
+        }
         this.loading = false;
       },
     });
+  }
+
+  private getActiveList(): ShoppingList | null {
+    return this.lists.find((list) => list.id === this.activeListId) ?? null;
   }
 }

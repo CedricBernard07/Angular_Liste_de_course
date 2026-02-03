@@ -29,17 +29,34 @@ interface ArchiveEntry {
   articlesNonAlimentaires: ArticleItem[];
 }
 
-interface ArticleState {
+interface ShoppingList {
+  id: number;
+  name: string;
   articlesAlimentaires: ArticleItem[];
   articlesNonAlimentaires: ArticleItem[];
   archives: ArchiveEntry[];
 }
 
-const defaultState: ArticleState = {
+interface ArticleState {
+  lists: ShoppingList[];
+  activeListId: number | null;
+}
+
+const createEmptyList = (name: string): ShoppingList => ({
+  id: Date.now(),
+  name,
   articlesAlimentaires: [],
   articlesNonAlimentaires: [],
   archives: [],
-};
+});
+
+const defaultState: ArticleState = (() => {
+  const list = createEmptyList('Liste de Cédric');
+  return {
+    lists: [list],
+    activeListId: list.id,
+  };
+})();
 
 const normalizeList = (value: unknown): ArticleItem[] => {
   if (!Array.isArray(value)) return [];
@@ -59,8 +76,8 @@ const normalizeList = (value: unknown): ArticleItem[] => {
 const normalizeArchives = (value: unknown): ArchiveEntry[] => {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => ({
-      id: Number(entry?.id) || Date.now(),
+    .map((entry, index) => ({
+      id: Number(entry?.id) || Date.now() + index,
       createdAt: typeof entry?.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
       articlesAlimentaires: normalizeList(entry?.articlesAlimentaires),
       articlesNonAlimentaires: normalizeList(entry?.articlesNonAlimentaires),
@@ -68,14 +85,60 @@ const normalizeArchives = (value: unknown): ArchiveEntry[] => {
     .filter(Boolean);
 };
 
+const normalizeLists = (value: unknown): ShoppingList[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry, index) => {
+      const name = typeof entry?.name === 'string' ? entry.name.trim() : '';
+      if (!name) return null;
+      return {
+        id: Number(entry?.id) || Date.now() + index,
+        name,
+        articlesAlimentaires: normalizeList(entry?.articlesAlimentaires),
+        articlesNonAlimentaires: normalizeList(entry?.articlesNonAlimentaires),
+        archives: normalizeArchives(entry?.archives),
+      };
+    })
+    .filter((item): item is ShoppingList => Boolean(item));
+};
+
+const ensureActiveList = (state: ArticleState): ShoppingList | null => {
+  if (!state.lists.length) {
+    state.activeListId = null;
+    return null;
+  }
+
+  const active =
+    state.lists.find((list) => list.id === state.activeListId) ?? state.lists[0];
+  state.activeListId = active?.id ?? null;
+  return active ?? null;
+};
+
 async function readState(): Promise<ArticleState> {
   try {
     const raw = await readFile(dataFile, 'utf-8');
     const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed?.lists)) {
+      const lists = normalizeLists(parsed.lists);
+      const state = {
+        lists,
+        activeListId:
+          typeof parsed?.activeListId === 'number' ? parsed.activeListId : lists[0]?.id ?? null,
+      };
+      ensureActiveList(state);
+      return state;
+    }
+
+    const legacyList: ShoppingList = {
+      ...createEmptyList('Liste de Cédric'),
+      articlesAlimentaires: normalizeList(parsed?.articlesAlimentaires),
+      articlesNonAlimentaires: normalizeList(parsed?.articlesNonAlimentaires),
+      archives: normalizeArchives(parsed?.archives),
+    };
+
     return {
-      articlesAlimentaires: normalizeList(parsed.articlesAlimentaires),
-      articlesNonAlimentaires: normalizeList(parsed.articlesNonAlimentaires),
-      archives: normalizeArchives(parsed.archives),
+      lists: [legacyList],
+      activeListId: legacyList.id,
     };
   } catch (error: any) {
     if (error?.code === 'ENOENT') {
@@ -103,6 +166,80 @@ app.get('/api/lists', async (req, res, next) => {
   }
 });
 
+app.post('/api/lists', async (req, res, next) => {
+  try {
+    const name = String(req.body?.name ?? '').trim();
+
+    if (!name) {
+      return res.status(400).json({ message: 'Le nom de la liste est obligatoire.' });
+    }
+
+    const state = await readState();
+    const exists = state.lists.some((list) => list.name.toLowerCase() === name.toLowerCase());
+
+    if (exists) {
+      return res.status(409).json({ message: 'Cette liste existe deja.' });
+    }
+
+    const list = createEmptyList(name);
+    state.lists.unshift(list);
+    state.activeListId = list.id;
+
+    await writeState(state);
+    return res.json(state);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/lists', async (req, res, next) => {
+  try {
+    const id = Number(req.body?.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Identifiant de liste invalide.' });
+    }
+
+    const state = await readState();
+    const index = state.lists.findIndex((list) => list.id === id);
+
+    if (index === -1) {
+      return res.status(404).json({ message: 'Liste introuvable.' });
+    }
+
+    state.lists.splice(index, 1);
+    if (state.activeListId === id) {
+      state.activeListId = state.lists[0]?.id ?? null;
+    }
+
+    await writeState(state);
+    return res.json(state);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/api/lists/active', async (req, res, next) => {
+  try {
+    const id = Number(req.body?.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Identifiant de liste invalide.' });
+    }
+
+    const state = await readState();
+    const target = state.lists.find((list) => list.id === id);
+
+    if (!target) {
+      return res.status(404).json({ message: 'Liste introuvable.' });
+    }
+
+    state.activeListId = target.id;
+    await writeState(state);
+    return res.json(state);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/api/articles', async (req, res, next) => {
   try {
     const name = String(req.body?.name ?? '').trim();
@@ -114,7 +251,13 @@ app.post('/api/articles', async (req, res, next) => {
     }
 
     const state = await readState();
-    const all = [...state.articlesAlimentaires, ...state.articlesNonAlimentaires];
+    const activeList = ensureActiveList(state);
+
+    if (!activeList) {
+      return res.status(400).json({ message: 'Aucune liste active.' });
+    }
+
+    const all = [...activeList.articlesAlimentaires, ...activeList.articlesNonAlimentaires];
     const exists = all.some((item) => item.name.toLowerCase() === name.toLowerCase());
 
     if (exists) {
@@ -122,7 +265,9 @@ app.post('/api/articles', async (req, res, next) => {
     }
 
     const target =
-      category === 'alimentaire' ? state.articlesAlimentaires : state.articlesNonAlimentaires;
+      category === 'alimentaire'
+        ? activeList.articlesAlimentaires
+        : activeList.articlesNonAlimentaires;
     target.push({ name, done: false });
 
     await writeState(state);
@@ -143,8 +288,16 @@ app.delete('/api/articles', async (req, res, next) => {
     }
 
     const state = await readState();
+    const activeList = ensureActiveList(state);
+
+    if (!activeList) {
+      return res.status(400).json({ message: 'Aucune liste active.' });
+    }
+
     const target =
-      category === 'alimentaire' ? state.articlesAlimentaires : state.articlesNonAlimentaires;
+      category === 'alimentaire'
+        ? activeList.articlesAlimentaires
+        : activeList.articlesNonAlimentaires;
     const index = target.findIndex((item) => item.name.toLowerCase() === name.toLowerCase());
 
     if (index === -1) {
@@ -170,8 +323,16 @@ app.patch('/api/articles/toggle', async (req, res, next) => {
     }
 
     const state = await readState();
+    const activeList = ensureActiveList(state);
+
+    if (!activeList) {
+      return res.status(400).json({ message: 'Aucune liste active.' });
+    }
+
     const target =
-      category === 'alimentaire' ? state.articlesAlimentaires : state.articlesNonAlimentaires;
+      category === 'alimentaire'
+        ? activeList.articlesAlimentaires
+        : activeList.articlesNonAlimentaires;
     const item = target.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
 
     if (!item) {
@@ -189,20 +350,33 @@ app.patch('/api/articles/toggle', async (req, res, next) => {
 app.delete('/api/current', async (req, res, next) => {
   try {
     const state = await readState();
-    state.articlesAlimentaires = [];
-    state.articlesNonAlimentaires = [];
+    const activeList = ensureActiveList(state);
+
+    if (!activeList) {
+      return res.status(400).json({ message: 'Aucune liste active.' });
+    }
+
+    activeList.articlesAlimentaires = [];
+    activeList.articlesNonAlimentaires = [];
     await writeState(state);
-    res.json(state);
+    return res.json(state);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 app.post('/api/archive', async (req, res, next) => {
   try {
     const state = await readState();
+    const activeList = ensureActiveList(state);
+
+    if (!activeList) {
+      return res.status(400).json({ message: 'Aucune liste active.' });
+    }
+
     const isEmpty =
-      state.articlesAlimentaires.length === 0 && state.articlesNonAlimentaires.length === 0;
+      activeList.articlesAlimentaires.length === 0 &&
+      activeList.articlesNonAlimentaires.length === 0;
 
     if (isEmpty) {
       return res.status(400).json({ message: 'La liste est vide, rien a archiver.' });
@@ -212,13 +386,13 @@ app.post('/api/archive', async (req, res, next) => {
     const snapshot: ArchiveEntry = {
       id: now.getTime(),
       createdAt: now.toISOString(),
-      articlesAlimentaires: [...state.articlesAlimentaires],
-      articlesNonAlimentaires: [...state.articlesNonAlimentaires],
+      articlesAlimentaires: [...activeList.articlesAlimentaires],
+      articlesNonAlimentaires: [...activeList.articlesNonAlimentaires],
     };
 
-    state.archives.unshift(snapshot);
-    state.articlesAlimentaires = [];
-    state.articlesNonAlimentaires = [];
+    activeList.archives.unshift(snapshot);
+    activeList.articlesAlimentaires = [];
+    activeList.articlesNonAlimentaires = [];
 
     await writeState(state);
     return res.json(state);
@@ -230,11 +404,17 @@ app.post('/api/archive', async (req, res, next) => {
 app.delete('/api/archives', async (req, res, next) => {
   try {
     const state = await readState();
-    state.archives = [];
+    const activeList = ensureActiveList(state);
+
+    if (!activeList) {
+      return res.status(400).json({ message: 'Aucune liste active.' });
+    }
+
+    activeList.archives = [];
     await writeState(state);
-    res.json(state);
+    return res.json(state);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
